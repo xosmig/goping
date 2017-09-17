@@ -1,10 +1,9 @@
 package goping
 
 import (
-	"io/ioutil"
 	"reflect"
 	"testing"
-	"time"
+	"io/ioutil"
 )
 
 type AnyError struct{}
@@ -18,12 +17,11 @@ var flagtests = []struct {
 }{
 	{[]string{}, Params{}, WrongNumberOfArguments{expected: 1, actual: 0}},
 	{[]string{"http://some_url.com", "http://another_url"}, Params{}, WrongNumberOfArguments{expected: 1, actual: 2}},
-	{[]string{"-help"}, Params{}, Cancelled{"Help is called."}},
 	{[]string{"-someNonExistingFlag"}, Params{}, AnyError{}},
 	{[]string{"http://some_url.com"},
-		Params{DefaultTimeout, DefaultCount, DefaultDeadline, "http://some_url.com"}, nil},
-	{[]string{"-timeout", "5s", "-count", "3", "-deadline", "10h", "http://url.com"},
-		Params{time.Second * 5, 3, time.Hour * 10, "http://url.com"}, nil},
+		Params{DefaultTimeout, DefaultInterval, DefaultCount, DefaultDeadline, "http://some_url.com"}, nil},
+	{[]string{"-timeout", "5", "-interval", "4",  "-count", "3", "-deadline", "10", "http://url.com"},
+		Params{5, 4, 3, 10, "http://url.com"}, nil},
 }
 
 func TestFlagParser(t *testing.T) {

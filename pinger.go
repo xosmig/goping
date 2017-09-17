@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"io"
 )
 
 type UnexpectedError string
@@ -41,11 +42,7 @@ func nextSeq() int {
 	return int(res)
 }
 
-func PingOnce(destination *net.IPAddr) {
-	PingOnceWithTimeout(destination, -1)
-}
-
-func PingOnceWithTimeout(destination *net.IPAddr, timeout time.Duration) error {
+func PingOnce(destination *net.IPAddr, timeout time.Duration) error {
 	// Create ICMP message
 	msg := icmp.Message{
 		Type: ipv4.ICMPTypeEcho,
@@ -63,6 +60,11 @@ func PingOnceWithTimeout(destination *net.IPAddr, timeout time.Duration) error {
 	if err != nil { return err }
 	defer connection.Close()
 
+	// Set deadline
+	if timeout > 0 {
+		if err := connection.SetDeadline(time.Now().Add(timeout)); err != nil { return err }
+	}
+
 	// Send the message
 	if n, err := connection.WriteTo(binary_msg, destination); err != nil {
 		return err
@@ -71,9 +73,6 @@ func PingOnceWithTimeout(destination *net.IPAddr, timeout time.Duration) error {
 	}
 
 	// Get a reply
-	if timeout > 0 {
-		if err := connection.SetReadDeadline(time.Now().Add(timeout)); err != nil { return err }
-	}
 	binary_reply := make([]byte, maxICMPPacketSize)
 	if _, _, err := connection.ReadFrom(binary_reply); err != nil { return err }
 
@@ -88,4 +87,47 @@ func PingOnceWithTimeout(destination *net.IPAddr, timeout time.Duration) error {
 	default:
 		return UnexpectedError(fmt.Sprintf("Unexpected reply type: %v", reply))
 	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	} else  {
+		return b
+	}
+}
+
+func UrlReachable(params Params, output io.Writer) bool {
+	dst, err := net.ResolveIPAddr("ip", params.Url)
+	if err != nil {
+		fmt.Fprintln(output, err.Error())
+		return false
+	}
+
+	timeout := time.Second * time.Duration(params.Timeout)
+	deadline := time.Now().Add(time.Second * time.Duration(params.Deadline))
+	// infinity if params.Count < 0
+	for i := 0; i != params.Count; i++ {
+		fmt.Fprintf(output, "Ping %v (%v)\n", params.Url, dst)
+		err := PingOnce(dst, time.Second * time.Duration(params.Timeout))
+		if err != nil {
+			fmt.Fprintln(output, err.Error())
+			if beforeDeadline := deadline.Sub(time.Now()); params.Interval == -1 || beforeDeadline < timeout {
+				PingOnce(dst, beforeDeadline)
+			} else {
+				PingOnce(dst, timeout)
+			}
+
+			if !time.Now().Before(deadline) {
+				break
+			}
+			time.Sleep(time.Duration(max(params.Interval - params.Timeout, 0)) * time.Second)
+		} else {
+			fmt.Fprintf(output, "Url %v (%v) is reachable\n", params.Url, dst.IP)
+			return true
+		}
+	}
+
+	fmt.Fprintf(output, "Url %v (%v) is not reachable\n", params.Url, dst.IP)
+	return false
 }
