@@ -26,7 +26,7 @@ type Cancelled struct {
 }
 
 func (err Cancelled) Error() string {
-	return "The call is canceled. Reason: " + err.reason
+	return "the call is canceled. Reason: " + err.reason
 }
 
 type WrongNumberOfArguments struct {
@@ -34,7 +34,7 @@ type WrongNumberOfArguments struct {
 }
 
 func (err WrongNumberOfArguments) Error() string {
-	return fmt.Sprintf("Wrong number of arguments. Expected: %d, actual: %d.", err.expected, err.actual)
+	return fmt.Sprintf("wrong number of arguments. Expected: %d, actual: %d", err.expected, err.actual)
 }
 
 func ParseCommandLine(args []string, errorOutput io.Writer) (Params, error) {
@@ -60,7 +60,7 @@ func ParseCommandLine(args []string, errorOutput io.Writer) (Params, error) {
 	}
 
 	if *helpPtr {
-		return Params{}, Cancelled{"Help is called."}
+		return Params{}, Cancelled{"help is called"}
 	}
 
 	if commandLine.NArg() != 1 {
