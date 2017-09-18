@@ -16,7 +16,7 @@ type Params struct {
 
 const (
 	DefaultTimeout  int = 2
-	DefaultInterval int = 2
+	DefaultInterval int = 3
 	DefaultCount    int = -1  // not limited
 	DefaultDeadline int = -1  // not limited
 )

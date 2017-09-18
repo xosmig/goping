@@ -110,16 +110,18 @@ func UrlReachable(params Params, output io.Writer) bool {
 	// infinity if params.Count < 0
 	for i := 0; i != params.Count; i++ {
 		fmt.Fprintf(output, "Ping %v (%v)\n", params.Url, dst)
-		err := PingOnce(dst, time.Second * time.Duration(params.Timeout))
+
+		beforeDeadline := deadline.Sub(time.Now())
+		var err error
+		if params.Timeout == -1 || (params.Deadline != -1 && beforeDeadline < timeout) {
+			err = PingOnce(dst, beforeDeadline)
+		} else {
+			err = PingOnce(dst, timeout)
+		}
+
 		if err != nil {
 			fmt.Fprintln(output, err.Error())
-			if beforeDeadline := deadline.Sub(time.Now()); params.Interval == -1 || beforeDeadline < timeout {
-				PingOnce(dst, beforeDeadline)
-			} else {
-				PingOnce(dst, timeout)
-			}
-
-			if !time.Now().Before(deadline) {
+			if params.Deadline != -1 && !time.Now().Before(deadline) {
 				break
 			}
 			time.Sleep(time.Duration(max(params.Interval - params.Timeout, 0)) * time.Second)
