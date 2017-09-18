@@ -106,27 +106,32 @@ func UrlReachable(params Params, output io.Writer) bool {
 	}
 
 	timeout := time.Second * time.Duration(params.Timeout)
+	sleepTime:= time.Second * time.Duration(max(params.Interval - params.Timeout, 0))
 	deadline := time.Now().Add(time.Second * time.Duration(params.Deadline))
 	// infinity if params.Count < 0
 	for i := 0; i != params.Count; i++ {
 		fmt.Fprintf(output, "Ping %v (%v)\n", params.Url, dst)
 
 		var err error
-		switch beforeDeadline := deadline.Sub(time.Now()); {
-		case params.Deadline > 0 && beforeDeadline <= 0:
+		if beforeDeadline := deadline.Sub(time.Now()); params.Deadline > 0 && beforeDeadline <= 0 {
 			break
-		case params.Timeout == -1 || (beforeDeadline > 0 && beforeDeadline < timeout):
+		} else if params.Timeout <= 0 || (beforeDeadline > 0 && beforeDeadline < timeout) {
 			err = PingOnce(dst, beforeDeadline)
-		default:
+		} else {
 			err = PingOnce(dst, timeout)
 		}
 
 		if err != nil {
 			fmt.Fprintln(output, err.Error())
-			if params.Deadline != -1 && !time.Now().Before(deadline) {
+			if beforeDeadline := deadline.Sub(time.Now()); params.Deadline > 0 && beforeDeadline <= 0 {
 				break
+			} else if sleepTime <= 0 {
+				// Don't sleep
+			} else if beforeDeadline > 0 && beforeDeadline < sleepTime {
+				time.Sleep(beforeDeadline)
+			} else {
+				time.Sleep(sleepTime)
 			}
-			time.Sleep(time.Duration(max(params.Interval - params.Timeout, 0)) * time.Second)
 		} else {
 			fmt.Fprintf(output, "Url %v (%v) is reachable\n", params.Url, dst.IP)
 			return true
