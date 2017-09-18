@@ -111,11 +111,13 @@ func UrlReachable(params Params, output io.Writer) bool {
 	for i := 0; i != params.Count; i++ {
 		fmt.Fprintf(output, "Ping %v (%v)\n", params.Url, dst)
 
-		beforeDeadline := deadline.Sub(time.Now())
 		var err error
-		if params.Timeout == -1 || (params.Deadline != -1 && beforeDeadline < timeout) {
+		switch beforeDeadline := deadline.Sub(time.Now()); {
+		case params.Deadline > 0 && beforeDeadline <= 0:
+			break
+		case params.Timeout == -1 || (beforeDeadline > 0 && beforeDeadline < timeout):
 			err = PingOnce(dst, beforeDeadline)
-		} else {
+		default:
 			err = PingOnce(dst, timeout)
 		}
 
