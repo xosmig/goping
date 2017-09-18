@@ -9,6 +9,7 @@ import (
 	"os"
 	"time"
 	"io"
+	"sync"
 )
 
 type UnexpectedError string
@@ -30,16 +31,19 @@ const (
 	listenAddress = "0.0.0.0"
 )
 
-var seq uint16 = 0
+var seq int32 = 0
+var mutex = &sync.Mutex{}
 
 func nextSeq() int {
-	res := seq
+	mutex.Lock()
+	defer mutex.Unlock()
+	res := int(seq)
 	if seq == math.MaxUint16 {
 		seq = 0
 	} else {
 		seq++
 	}
-	return int(res)
+	return res
 }
 
 func PingOnce(destination *net.IPAddr, timeout time.Duration) error {
@@ -79,14 +83,11 @@ func PingOnce(destination *net.IPAddr, timeout time.Duration) error {
 	reply, err := icmp.ParseMessage(ipv4ICMPProtocolNumber, binary_reply)
 	if err != nil { return err }
 
-	switch reply.Type {
-	case ipv4.ICMPTypeEchoReply:
-		return nil
-	case ipv4.ICMPTypeTimeExceeded:
-		return BadReply("Timeout exceeded.")
-	default:
-		return UnexpectedError(fmt.Sprintf("Unexpected reply type: %v", reply))
+	if reply.Type != ipv4.ICMPTypeEchoReply {
+		return UnexpectedError(fmt.Sprintf("Unexpected reply type: %v", reply.Type))
 	}
+
+	return nil
 }
 
 func max(a, b int) int {
